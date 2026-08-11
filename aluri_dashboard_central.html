@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>aluri — Dashboard Central</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --turquesa:#00F5D4; --turquesa-profundo:#00C2B2; --onyx:#0A0A0A;
+    --carbon:#1E1E1E; --blanco:#FFFFFF; --gris-medio:#B8B8B8;
+    --rojo:#FF3B30; --radius:14px; --gap:16px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;font-family:'Inter',sans-serif;background-color:var(--onyx);
+    background-image: radial-gradient(circle, rgba(255,255,255,0.035) 1px, transparent 1px);
+    background-size:24px 24px; color:var(--blanco); -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1320px;margin:0 auto;padding:0 24px 60px;}
+
+  .top-bar{
+    position:sticky;top:0;z-index:30;background:rgba(10,10,10,0.94);backdrop-filter:blur(8px);
+    border-bottom:1px solid rgba(255,255,255,0.08);padding:16px 24px;margin-bottom:24px;
+    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;
+  }
+  .logo{font-size:14px;font-weight:800;}
+  .logo span{color:var(--turquesa);}
+  .logo small{display:block;font-size:10.5px;font-weight:500;color:var(--gris-medio);margin-top:1px;}
+  .top-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .period-toggle{display:flex;background:var(--carbon);border:1px solid rgba(255,255,255,0.1);border-radius:10px;overflow:hidden;}
+  .period-toggle button{background:transparent;border:none;color:var(--gris-medio);font-family:inherit;font-size:12.5px;font-weight:700;padding:9px 15px;cursor:pointer;white-space:nowrap;}
+  .period-toggle button.active{background:var(--turquesa);color:var(--onyx);}
+  .range-label{font-size:11.5px;color:var(--gris-medio);}
+  .btn-update{background:var(--carbon);border:1px solid rgba(0,245,212,0.35);color:var(--turquesa);font-family:inherit;font-weight:700;font-size:12.5px;padding:9px 14px;border-radius:10px;cursor:pointer;}
+  .btn-update:hover{background:rgba(0,245,212,0.1);}
+
+  .kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:28px;}
+  .kpi-card{background:var(--carbon);border:1px solid rgba(255,255,255,0.06);border-radius:var(--radius);padding:15px 14px;}
+  .kpi-label{font-size:10.5px;font-weight:600;color:var(--gris-medio);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
+  .kpi-value{font-size:19px;font-weight:800;letter-spacing:-.3px;}
+  .kpi-delta{font-size:11px;font-weight:700;margin-top:3px;}
+  .kpi-delta.up{color:var(--turquesa);} .kpi-delta.down{color:var(--rojo);} .kpi-delta.flat{color:var(--gris-medio);}
+
+  .domain{margin-bottom:36px;}
+  .domain-head{display:flex;align-items:baseline;gap:10px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.08);}
+  .domain-head .dot{width:8px;height:8px;border-radius:50%;background:var(--turquesa);}
+  .domain-head h2{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin:0;}
+  .domain-head span{font-size:11.5px;color:var(--gris-medio);}
+
+  .chart-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--gap);margin-bottom:var(--gap);}
+  .chart-card{background:var(--carbon);border:1px solid rgba(255,255,255,0.06);border-radius:var(--radius);padding:16px 18px;}
+  .chart-card h3{font-size:12.5px;font-weight:700;margin:0 0 2px;}
+  .chart-card .note{font-size:10.5px;color:var(--gris-medio);margin:0 0 10px;}
+  .chart-canvas-wrap{position:relative;height:210px;}
+  .full{grid-column:1/-1;}
+  .full .chart-canvas-wrap{height:250px;}
+
+  .table-card{background:var(--carbon);border:1px solid rgba(255,255,255,0.06);border-radius:var(--radius);padding:16px 18px;overflow-x:auto;margin-top:var(--gap);}
+  .table-card h3{font-size:12.5px;font-weight:700;margin:0 0 10px;}
+  table{width:100%;border-collapse:collapse;font-size:11.5px;}
+  th{text-align:right;padding:7px 9px;color:var(--gris-medio);font-weight:600;text-transform:uppercase;font-size:9.5px;letter-spacing:.3px;border-bottom:1px solid rgba(255,255,255,0.12);white-space:nowrap;}
+  th:first-child,td:first-child{text-align:left;}
+  td{padding:7px 9px;text-align:right;border-bottom:1px solid rgba(255,255,255,0.05);white-space:nowrap;}
+  tr:last-child td{border-bottom:none;}
+  tr.hl td{font-weight:800;color:var(--turquesa);}
+  .neg{color:var(--rojo);}
+
+  .health-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+  .health-card{background:var(--carbon);border:1px solid rgba(255,255,255,0.06);border-radius:var(--radius);padding:16px;text-align:center;}
+  .health-card .hv{font-size:20px;font-weight:800;color:var(--turquesa);}
+  .health-card .hl{font-size:10.5px;color:var(--gris-medio);margin-top:4px;text-transform:uppercase;letter-spacing:.3px;}
+
+  footer{margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);font-size:10.5px;color:var(--gris-medio);text-align:center;}
+
+  /* UPDATE PANEL */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:90;display:none;}
+  .overlay.open{display:block;}
+  .panel{position:fixed;top:0;right:0;height:100%;width:420px;max-width:92vw;background:#141414;border-left:1px solid rgba(255,255,255,0.1);z-index:91;transform:translateX(100%);transition:transform .25s ease;overflow-y:auto;padding:22px;}
+  .panel.open{transform:translateX(0);}
+  .panel h3{font-size:15px;font-weight:800;margin:0 0 4px;}
+  .panel .sub{font-size:11.5px;color:var(--gris-medio);margin:0 0 18px;}
+  .panel label{display:block;font-size:11px;color:var(--gris-medio);margin:12px 0 4px;text-transform:uppercase;letter-spacing:.3px;}
+  .panel input{width:100%;background:var(--carbon);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:9px 10px;color:#fff;font-family:inherit;font-size:13px;}
+  .panel input:focus{outline:1px solid var(--turquesa);}
+  .panel .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .panel .save-btn{margin-top:18px;width:100%;background:var(--turquesa);color:var(--onyx);border:none;border-radius:8px;padding:11px;font-weight:800;font-size:13.5px;cursor:pointer;}
+  .panel .save-btn:disabled{opacity:.5;cursor:default;}
+  .panel .close-x{position:absolute;top:18px;right:18px;background:none;border:none;color:var(--gris-medio);font-size:20px;cursor:pointer;}
+  .panel .status{font-size:12px;margin-top:10px;min-height:16px;}
+  .panel .status.ok{color:var(--turquesa);}
+  .panel .status.err{color:var(--rojo);}
+  .month-list{margin-top:22px;border-top:1px solid rgba(255,255,255,0.1);padding-top:14px;}
+  .month-list h4{font-size:11px;text-transform:uppercase;color:var(--gris-medio);margin:0 0 8px;letter-spacing:.4px;}
+  .month-chip{display:inline-flex;align-items:center;gap:6px;background:var(--carbon);border:1px solid rgba(255,255,255,0.08);border-radius:7px;padding:5px 9px;font-size:11px;margin:3px 4px 3px 0;cursor:pointer;}
+  .month-chip:hover{border-color:var(--turquesa);}
+  .snapshot-section{margin-top:26px;border-top:1px solid rgba(255,255,255,0.1);padding-top:16px;}
+  .loading-msg{text-align:center;padding:60px 20px;color:var(--gris-medio);font-size:13px;}
+
+  @media (max-width:1000px){
+    .kpi-row{grid-template-columns:repeat(3,1fr);}
+    .chart-grid{grid-template-columns:1fr;}
+    .health-row{grid-template-columns:repeat(2,1fr);}
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="logo">aluri<span>.</span><small>Dashboard Central — histórico completo</small></div>
+  <div class="top-controls">
+    <span class="range-label" id="rangeLabel"></span>
+    <div class="period-toggle" id="periodToggle">
+      <button data-p="monthly" class="active">Mensual</button>
+      <button data-p="quarterly">Trimestral</button>
+      <button data-p="semiannual">Semestral</button>
+      <button data-p="annual">Anual</button>
+    </div>
+    <div class="period-toggle" id="currencyToggle">
+      <button data-c="cop" class="active">COP</button>
+      <button data-c="usd">USD</button>
+    </div>
+    <button class="btn-update" id="openPanelBtn">⚙ Actualizar datos</button>
+  </div>
+</div>
+
+<div id="mainContent" class="wrap">
+  <div class="loading-msg">Cargando datos...</div>
+</div>
+
+<div class="overlay" id="overlay"></div>
+<div class="panel" id="panel">
+  <button class="close-x" id="closePanelBtn">×</button>
+  <h3>Actualizar datos</h3>
+  <p class="sub">Agrega o corrige un mes. Todo lo trimestral, semestral y anual se recalcula solo. Los cambios quedan guardados para todo el equipo.</p>
+
+  <label>Mes</label>
+  <input type="month" id="f-month" value="2026-07">
+
+  <label>Originación (COP, one-time)</label>
+  <input type="text" id="f-originacion" placeholder="ej. 75200000">
+  <label>Recurrentes / administración (COP)</label>
+  <input type="text" id="f-recurrentes" placeholder="ej. 15308244">
+  <label>Otros ingresos (COP)</label>
+  <input type="text" id="f-otros" placeholder="ej. 0">
+  <div class="row2">
+    <div><label>Costo (COP)</label><input type="text" id="f-costo" placeholder="ej. 52033873"></div>
+    <div><label>Gastos operativos (COP)</label><input type="text" id="f-gastos" placeholder="ej. 60935281"></div>
+  </div>
+  <div class="row2">
+    <div><label>Créditos nuevos (#)</label><input type="text" id="f-creditos" placeholder="ej. 9"></div>
+    <div><label>GMV colocado (COP)</label><input type="text" id="f-gmv" placeholder="ej. 1494000000"></div>
+  </div>
+  <div class="row2">
+    <div><label>Inversionistas nuevos (#)</label><input type="text" id="f-inversionistas" placeholder="ej. 0"></div>
+    <div><label>Monto invertido nuevo (COP)</label><input type="text" id="f-montoinvertido" placeholder="ej. 80000000"></div>
+  </div>
+  <label>Rentabilidad promedio ofrecida (% E.A. bruta)</label>
+  <input type="text" id="f-rentabilidad" placeholder="ej. 26.76">
+
+  <button class="save-btn" id="saveMonthBtn">Guardar mes</button>
+  <div class="status" id="saveStatus"></div>
+
+  <div class="month-list">
+    <h4>Meses cargados (clic para editar)</h4>
+    <div id="monthChips"></div>
+  </div>
+
+  <div class="snapshot-section">
+    <h4 style="font-size:11px;text-transform:uppercase;color:var(--gris-medio);letter-spacing:.4px;margin:0 0 10px;">Salud del portafolio (snapshot actual)</h4>
+    <div class="row2">
+      <div><label>Default acumulado (%)</label><input type="text" id="f-default" placeholder="0"></div>
+      <div><label>Rentabilidad neta (% E.A.)</label><input type="text" id="f-rentneta" placeholder="22"></div>
+    </div>
+    <div class="row2">
+      <div><label>Efectivo en caja (USD)</label><input type="text" id="f-caja" placeholder="310000"></div>
+      <div><label>Tiempo de cierre (días)</label><input type="text" id="f-cierre" placeholder="14"></div>
+    </div>
+    <button class="save-btn" id="saveSnapshotBtn" style="background:var(--turquesa-profundo);">Guardar snapshot</button>
+    <div class="status" id="snapshotStatus"></div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'aluri-monthly-data';
+
+// Datos base: histórico jul 2025 - jun 2026, fuente: modelo financiero oficial
+const SEED_MONTHS = {
+  '2025-07':{label:'Jul 25', originacion:27800000, recurrentes:0, otros:1000000, costo:28800000, gastos:0, creditos:7, gmv:725000000, inversionistasNuevos:4, montoInvertido:725000000, rentabilidad:27.49},
+  '2025-08':{label:'Ago 25', originacion:5720000, recurrentes:0, otros:0, costo:5720000, gastos:0, creditos:2, gmv:143000000, inversionistasNuevos:0, montoInvertido:0, rentabilidad:25.34},
+  '2025-09':{label:'Sep 25', originacion:7200000, recurrentes:0, otros:0, costo:7200000, gastos:0, creditos:1, gmv:180000000, inversionistasNuevos:0, montoInvertido:0, rentabilidad:25.35},
+  '2025-10':{label:'Oct 25', originacion:6400000, recurrentes:0, otros:500000, costo:7852453, gastos:285668, creditos:3, gmv:160000000, inversionistasNuevos:1, montoInvertido:53333333, rentabilidad:23.87},
+  '2025-11':{label:'Nov 25', originacion:42968791, recurrentes:0, otros:500000, costo:13463409, gastos:44008433, creditos:5, gmv:706000000, inversionistasNuevos:3, montoInvertido:666000000, rentabilidad:23.97},
+  '2025-12':{label:'Dic 25', originacion:63961593, recurrentes:0, otros:0, costo:13174600, gastos:30008856, creditos:2, gmv:1100000000, inversionistasNuevos:5, montoInvertido:1050000000, rentabilidad:24.86},
+  '2026-01':{label:'Ene 26', originacion:35697250, recurrentes:0, otros:0, costo:16634200, gastos:15572845, creditos:2, gmv:650000000, inversionistasNuevos:5, montoInvertido:425000000, rentabilidad:24.75},
+  '2026-02':{label:'Feb 26', originacion:63592500, recurrentes:0, otros:0, costo:27316030, gastos:20968245, creditos:4, gmv:1122000000, inversionistasNuevos:1, montoInvertido:390030000, rentabilidad:24.61},
+  '2026-03':{label:'Mar 26', originacion:123350864, recurrentes:3874500, otros:1000000, costo:35445037, gastos:38363628, creditos:11, gmv:2091000000, inversionistasNuevos:14, montoInvertido:1645000000, rentabilidad:29.44},
+  '2026-04':{label:'Abr 26', originacion:46100000, recurrentes:5958940, otros:0, costo:37206254, gastos:57120327, creditos:7, gmv:949266128, inversionistasNuevos:1, montoInvertido:445000000, rentabilidad:25.54},
+  '2026-05':{label:'May 26', originacion:77450000, recurrentes:9460176, otros:1500000, costo:47579935, gastos:68407359, creditos:11, gmv:1568000000, inversionistasNuevos:5, montoInvertido:352000000, rentabilidad:26.48},
+  '2026-06':{label:'Jun 26', originacion:73450000, recurrentes:13791099, otros:3500000, costo:52027873, gastos:60869938, creditos:8, gmv:1494000000, inversionistasNuevos:3, montoInvertido:80000000, rentabilidad:26.76},
+  '2026-07':{label:'Jul 26', originacion:100600000, recurrentes:17642046, otros:4500000, costo:60900303, gastos:61308392, creditos:14, gmv:2053000000, inversionistasNuevos:6, montoInvertido:1255000000, rentabilidad:27.05}
+};
+const SEED_SNAPSHOT = { default:0, rentabilidadNeta:22, cajaUSD:307000, tiempoCierre:25 };
+
+let monthsData = {};
+let snapshot = {...SEED_SNAPSHOT};
+let mode = 'monthly';
+
+const MESES_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+function labelFromKey(key){
+  const [y,m] = key.split('-');
+  return `${MESES_ES[parseInt(m)-1]} ${y.slice(2)}`;
+}
+function parseNum(str){
+  if (typeof str === 'number') return str;
+  const cleaned = String(str).replace(/[^0-9.-]/g,'');
+  const v = parseFloat(cleaned);
+  return isNaN(v) ? 0 : v;
+}
+
+const TRM = 3500;
+let currency = 'cop';
+const fmt = (v,d=0) => v.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+function cop(copVal){
+  const v = currency === 'usd' ? copVal / TRM : copVal;
+  const abs = Math.abs(v);
+  const dec = currency === 'usd' ? 2 : 1;
+  if (abs >= 1000000) return (v<0?'-$':'$') + fmt(abs/1000000,dec) + 'M';
+  if (abs >= 1000) return (v<0?'-$':'$') + fmt(abs/1000, currency==='usd'?1:0) + 'K';
+  return (v<0?'-$':'$') + fmt(abs);
+}
+function copFull(copVal){ return cop(copVal) + (currency==='usd' ? ' USD' : ' COP'); }
+function curLabel(){ return currency==='usd' ? 'USD' : 'COP'; }
+function pct(v,d=1){ return fmt(v,d)+'%'; }
+
+function deriveMonth(m){
+  const ingresos = m.originacion + m.recurrentes + m.otros;
+  const utilidadBruta = ingresos - m.costo;
+  const ebitda = utilidadBruta - m.gastos;
+  return {...m, ingresos, utilidadBruta, ebitda};
+}
+
+function aggregate(granularity){
+  const keys = Object.keys(monthsData).sort();
+  const buckets = {};
+  const order = [];
+  keys.forEach(key=>{
+    const m = deriveMonth(monthsData[key]);
+    const year = parseInt(key.slice(0,4));
+    const monthNum = parseInt(key.slice(5,7));
+    let bucketKey, label;
+    if (granularity==='monthly'){ bucketKey=key; label=m.label || labelFromKey(key); }
+    else if (granularity==='quarterly'){ const q=Math.ceil(monthNum/3); bucketKey=`${year}-Q${q}`; label=`Q${q} ${year}`; }
+    else if (granularity==='semiannual'){ const s=monthNum<=6?1:2; bucketKey=`${year}-S${s}`; label=`S${s} ${year}`; }
+    else { bucketKey=`${year}`; label=`${year}`; }
+    if (!buckets[bucketKey]){
+      buckets[bucketKey]={label, originacion:0,recurrentes:0,otros:0,ingresos:0,costo:0,utilidadBruta:0,gastos:0,ebitda:0,creditos:0,gmv:0,inversionistasNuevos:0,montoInvertido:0,rentSum:0,rentWeight:0};
+      order.push(bucketKey);
+    }
+    const b = buckets[bucketKey];
+    b.originacion+=m.originacion; b.recurrentes+=m.recurrentes; b.otros+=m.otros; b.ingresos+=m.ingresos;
+    b.costo+=m.costo; b.utilidadBruta+=m.utilidadBruta; b.gastos+=m.gastos; b.ebitda+=m.ebitda;
+    b.creditos+=m.creditos; b.gmv+=m.gmv; b.inversionistasNuevos+=m.inversionistasNuevos; b.montoInvertido+=m.montoInvertido;
+    const w = m.gmv || 1;
+    b.rentSum += (m.rentabilidad||0)*w; b.rentWeight += w;
+  });
+  return order.sort().map(k=>{
+    const b = buckets[k];
+    b.rentabilidad = b.rentWeight ? b.rentSum/b.rentWeight : 0;
+    b.ticketPromedio = b.creditos ? b.gmv/b.creditos : 0;
+    b.takeRate = b.gmv ? b.ingresos/b.gmv*100 : 0;
+    b.margenPct = b.ingresos ? b.utilidadBruta/b.ingresos*100 : 0;
+    return b;
+  });
+}
+
+function last(a){ return a[a.length-1]; }
+function prevOf(a){ return a.length>1 ? a[a.length-2] : null; }
+function delta(cur,prev){
+  if (prev === null || prev === undefined) return {txt:'—', cls:'flat'};
+  if (prev === 0 && cur === 0) return {txt:'sin cambio', cls:'flat'};
+  if (prev === 0) return {txt:'nuevo', cls:'up'};
+  const p = ((cur-prev)/Math.abs(prev))*100;
+  return {txt:(p>=0?'+':'')+fmt(p,1)+'% vs anterior', cls: p>0.5?'up':(p<-0.5?'down':'flat')};
+}
+
+const GRID='rgba(255,255,255,0.06)', TICK='#B8B8B8';
+Chart.defaults.font.family='Inter';
+let charts={};
+function bar(id,labels,data,colors,yFmt){
+  if (charts[id]) charts[id].destroy();
+  charts[id]=new Chart(document.getElementById(id),{type:'bar',data:{labels,datasets:[{data,backgroundColor:colors,borderRadius:4,maxBarThickness:52}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:{display:false},ticks:{color:TICK,font:{size:10}}},y:{grid:{color:GRID},ticks:{color:TICK,callback:yFmt}}}}});
+}
+function stackedBar(id,labels,datasets){
+  if (charts[id]) charts[id].destroy();
+  charts[id]=new Chart(document.getElementById(id),{type:'bar',data:{labels,datasets},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{color:'#fff',boxWidth:11,font:{size:10.5}}}},
+      scales:{x:{stacked:true,grid:{display:false},ticks:{color:TICK,font:{size:10}}},y:{stacked:true,grid:{color:GRID},ticks:{color:TICK,callback:v=>cop(v)}}}}});
+}
+function line(id,labels,data,yFmt){
+  if (charts[id]) charts[id].destroy();
+  charts[id]=new Chart(document.getElementById(id),{type:'line',data:{labels,datasets:[{data,borderColor:'#00F5D4',backgroundColor:'rgba(0,245,212,0.12)',fill:true,tension:.3,pointRadius:4,pointBackgroundColor:'#00F5D4',borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:{display:false},ticks:{color:TICK,font:{size:10}}},y:{grid:{color:GRID},ticks:{color:TICK,callback:yFmt}}}}});
+}
+
+function tableRow(label,arr,formatter,isTotal){
+  return `<tr${isTotal?' class="hl"':''}><td>${label}</td>${arr.map(v=>`<td class="${(typeof v==='number'&&v<0)?'neg':''}">${formatter(v)}</td>`).join('')}</tr>`;
+}
+
+function renderMain(){
+  const d = aggregate(mode);
+  const labels = d.map(x=>x.label);
+  document.getElementById('rangeLabel').textContent = mode==='monthly' ? `${d.length} meses` : mode==='quarterly' ? `${d.length} trimestres` : mode==='semiannual' ? `${d.length} semestres` : `${d.length} años`;
+
+  const curIng=last(d.map(x=>x.ingresos)), prevIng=prevOf(d.map(x=>x.ingresos));
+  const curEbitda=last(d.map(x=>x.ebitda)), prevEbitda=prevOf(d.map(x=>x.ebitda));
+  const curCred=last(d.map(x=>x.creditos)), prevCred=prevOf(d.map(x=>x.creditos));
+  const curGmv=last(d.map(x=>x.gmv)), prevGmv=prevOf(d.map(x=>x.gmv));
+  const curInv=last(d.map(x=>x.inversionistasNuevos)), prevInv=prevOf(d.map(x=>x.inversionistasNuevos));
+  const curRent=last(d.map(x=>x.rentabilidad)), prevRent=prevOf(d.map(x=>x.rentabilidad));
+
+  const kpis = [
+    {label:'Ingresos', value:copFull(curIng), d:delta(curIng,prevIng)},
+    {label:'EBITDA', value:copFull(curEbitda), d:delta(curEbitda,prevEbitda), neg:curEbitda<0},
+    {label:'Créditos nuevos', value:curCred, d:delta(curCred,prevCred)},
+    {label:'GMV colocado', value:copFull(curGmv), d:delta(curGmv,prevGmv)},
+    {label:'Inversionistas nuevos', value:curInv, d:delta(curInv,prevInv)},
+    {label:'Rentabilidad ofrecida', value:pct(curRent), d:delta(curRent,prevRent)}
+  ];
+
+  document.getElementById('mainContent').innerHTML = `
+    <section class="kpi-row">${kpis.map(c=>`<div class="kpi-card"><div class="kpi-label">${c.label}</div><div class="kpi-value" style="color:${c.neg?'var(--rojo)':'var(--blanco)'}">${c.value}</div><div class="kpi-delta ${c.d.cls}">${c.d.txt}</div></div>`).join('')}</section>
+
+    <section class="domain">
+      <div class="domain-head"><span class="dot"></span><h2>Financiero</h2><span>Ingresos, costos y rentabilidad</span></div>
+      <div class="chart-grid">
+        <div class="chart-card full"><h3>Composición de ingresos</h3><p class="note">Originación (one-time) · Administración/Recurrente · Otros</p><div class="chart-canvas-wrap"><canvas id="chartRevenue"></canvas></div></div>
+        <div class="chart-card"><h3>EBITDA</h3><p class="note">Utilidad antes de impuestos</p><div class="chart-canvas-wrap"><canvas id="chartEbitda"></canvas></div></div>
+        <div class="chart-card"><h3>Margen bruto %</h3><p class="note">Utilidad bruta / Ingresos</p><div class="chart-canvas-wrap"><canvas id="chartMargin"></canvas></div></div>
+      </div>
+      <div class="table-card"><h3>P&amp;L completo (${curLabel()}, TRM $3,500)</h3><table id="tablePL"><thead></thead><tbody></tbody></table></div>
+    </section>
+
+    <section class="domain">
+      <div class="domain-head"><span class="dot"></span><h2>Comercial</h2><span>Créditos, colocación y take rate</span></div>
+      <div class="chart-grid">
+        <div class="chart-card"><h3>Créditos nuevos</h3><p class="note">Hipotecas cerradas por período</p><div class="chart-canvas-wrap"><canvas id="chartCreditos"></canvas></div></div>
+        <div class="chart-card"><h3>GMV colocado</h3><p class="note">Monto de créditos nuevos, COP</p><div class="chart-canvas-wrap"><canvas id="chartGmv"></canvas></div></div>
+        <div class="chart-card full"><h3>Take rate %</h3><p class="note">Ingresos / GMV colocado del mismo período</p><div class="chart-canvas-wrap"><canvas id="chartTakeRate"></canvas></div></div>
+      </div>
+      <div class="table-card"><h3>Comercial (${curLabel()}, TRM $3,500)</h3><table id="tableComercial"><thead></thead><tbody></tbody></table></div>
+    </section>
+
+    <section class="domain">
+      <div class="domain-head"><span class="dot"></span><h2>Inversionistas</h2><span>Capital, adquisición y rentabilidad ofrecida</span></div>
+      <div class="chart-grid">
+        <div class="chart-card"><h3>Inversionistas nuevos</h3><p class="note">Por período</p><div class="chart-canvas-wrap"><canvas id="chartInversionistas"></canvas></div></div>
+        <div class="chart-card"><h3>Monto invertido nuevo</h3><p class="note">COP, primera inversión de cada nuevo inversionista</p><div class="chart-canvas-wrap"><canvas id="chartMontoInvertido"></canvas></div></div>
+        <div class="chart-card full"><h3>Rentabilidad promedio ofrecida</h3><p class="note">E.A. bruta, antes de la comisión de administración</p><div class="chart-canvas-wrap"><canvas id="chartRentabilidad"></canvas></div></div>
+      </div>
+      <div class="table-card"><h3>Inversionistas (${curLabel()}, TRM $3,500)</h3><table id="tableInversionistas"><thead></thead><tbody></tbody></table></div>
+    </section>
+
+    <section class="domain">
+      <div class="domain-head"><span class="dot"></span><h2>Salud del portafolio</h2><span>Snapshot actual, no cambia con el período</span></div>
+      <div class="health-row">
+        <div class="health-card"><div class="hv">${pct(snapshot.default)}</div><div class="hl">Default acumulado</div></div>
+        <div class="health-card"><div class="hv">${pct(snapshot.rentabilidadNeta)} E.A.</div><div class="hl">Rentabilidad neta inversionista</div></div>
+        <div class="health-card"><div class="hv">${copFull(snapshot.cajaUSD*TRM)}</div><div class="hl">Efectivo en caja</div></div>
+        <div class="health-card"><div class="hv">${snapshot.tiempoCierre} días</div><div class="hl">Tiempo de cierre operativo</div></div>
+      </div>
+    </section>
+
+    <footer>Uso interno · Finanzas, Comercial e Inversionistas · TRM $3,500 COP/USD · Última actualización: ${last(d)?d.length+' períodos cargados':''}</footer>
+  `;
+
+  const head = `<tr><th></th>${labels.map(l=>`<th>${l}</th>`).join('')}</tr>`;
+  document.querySelector('#tablePL thead').innerHTML = head;
+  document.querySelector('#tablePL tbody').innerHTML =
+    tableRow('Ingresos', d.map(x=>x.ingresos), cop) +
+    tableRow('— Originación', d.map(x=>x.originacion), cop) +
+    tableRow('— Recurrentes', d.map(x=>x.recurrentes), cop) +
+    tableRow('— Otros', d.map(x=>x.otros), cop) +
+    tableRow('Costo', d.map(x=>x.costo), cop) +
+    tableRow('Utilidad bruta', d.map(x=>x.utilidadBruta), cop) +
+    tableRow('Margen %', d.map(x=>x.margenPct), v=>pct(v)) +
+    tableRow('Gastos operativos', d.map(x=>x.gastos), cop) +
+    tableRow('EBITDA', d.map(x=>x.ebitda), cop, true);
+
+  document.querySelector('#tableComercial thead').innerHTML = head;
+  document.querySelector('#tableComercial tbody').innerHTML =
+    tableRow('Créditos nuevos', d.map(x=>x.creditos), v=>v) +
+    tableRow('GMV colocado', d.map(x=>x.gmv), cop) +
+    tableRow('Ticket promedio', d.map(x=>x.ticketPromedio), cop) +
+    tableRow('Take rate %', d.map(x=>x.takeRate), v=>pct(v,2), true);
+
+  document.querySelector('#tableInversionistas thead').innerHTML = head;
+  document.querySelector('#tableInversionistas tbody').innerHTML =
+    tableRow('Inversionistas nuevos', d.map(x=>x.inversionistasNuevos), v=>v) +
+    tableRow('Monto invertido nuevo', d.map(x=>x.montoInvertido), cop) +
+    tableRow('Rentabilidad promedio E.A.', d.map(x=>x.rentabilidad), v=>pct(v), true);
+
+  stackedBar('chartRevenue', labels, [
+    {label:'Originación', data:d.map(x=>x.originacion), backgroundColor:'#B8B8B8', borderRadius:3},
+    {label:'Recurrentes', data:d.map(x=>x.recurrentes), backgroundColor:'#00F5D4', borderRadius:3},
+    {label:'Otros', data:d.map(x=>x.otros), backgroundColor:'#00C2B2', borderRadius:3}
+  ]);
+  bar('chartEbitda', labels, d.map(x=>x.ebitda), d.map(x=>x.ebitda<0?'#FF3B30':'#00F5D4'), cop);
+  line('chartMargin', labels, d.map(x=>x.margenPct), v=>pct(v));
+  bar('chartCreditos', labels, d.map(x=>x.creditos), '#00F5D4', v=>v);
+  bar('chartGmv', labels, d.map(x=>x.gmv), '#00C2B2', cop);
+  line('chartTakeRate', labels, d.map(x=>x.takeRate), v=>pct(v,1));
+  bar('chartInversionistas', labels, d.map(x=>x.inversionistasNuevos), '#00C2B2', v=>v);
+  bar('chartMontoInvertido', labels, d.map(x=>x.montoInvertido), '#00F5D4', cop);
+  line('chartRentabilidad', labels, d.map(x=>x.rentabilidad), v=>pct(v));
+}
+
+function renderMonthChips(){
+  const keys = Object.keys(monthsData).sort();
+  document.getElementById('monthChips').innerHTML = keys.map(k=>`<span class="month-chip" data-key="${k}">${monthsData[k].label||labelFromKey(k)}</span>`).join('');
+  document.querySelectorAll('.month-chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      const k = chip.dataset.key;
+      const m = monthsData[k];
+      document.getElementById('f-month').value = k;
+      document.getElementById('f-originacion').value = m.originacion;
+      document.getElementById('f-recurrentes').value = m.recurrentes;
+      document.getElementById('f-otros').value = m.otros;
+      document.getElementById('f-costo').value = m.costo;
+      document.getElementById('f-gastos').value = m.gastos;
+      document.getElementById('f-creditos').value = m.creditos;
+      document.getElementById('f-gmv').value = m.gmv;
+      document.getElementById('f-inversionistas').value = m.inversionistasNuevos;
+      document.getElementById('f-montoinvertido').value = m.montoInvertido;
+      document.getElementById('f-rentabilidad').value = m.rentabilidad;
+    });
+  });
+}
+
+async function loadData(){
+  let stored = null;
+  try{
+    const result = await window.storage.get(STORAGE_KEY, true);
+    if (result && result.value) stored = JSON.parse(result.value);
+  }catch(e){ stored = null; }
+  monthsData = {...SEED_MONTHS, ...(stored && stored.months ? stored.months : {})};
+  snapshot = {...SEED_SNAPSHOT, ...(stored && stored.snapshot ? stored.snapshot : {})};
+  renderMain();
+  renderMonthChips();
+}
+
+async function persist(){
+  const payload = JSON.stringify({months: monthsData, snapshot: snapshot});
+  await window.storage.set(STORAGE_KEY, payload, true);
+}
+
+document.getElementById('periodToggle').addEventListener('click',(e)=>{
+  if (e.target.tagName!=='BUTTON') return;
+  mode = e.target.dataset.p;
+  document.querySelectorAll('#periodToggle button').forEach(b=>b.classList.toggle('active', b===e.target));
+  renderMain();
+});
+
+document.getElementById('currencyToggle').addEventListener('click',(e)=>{
+  if (e.target.tagName!=='BUTTON') return;
+  currency = e.target.dataset.c;
+  document.querySelectorAll('#currencyToggle button').forEach(b=>b.classList.toggle('active', b===e.target));
+  renderMain();
+});
+
+function openPanel(){ document.getElementById('panel').classList.add('open'); document.getElementById('overlay').classList.add('open'); }
+function closePanel(){ document.getElementById('panel').classList.remove('open'); document.getElementById('overlay').classList.remove('open'); }
+document.getElementById('openPanelBtn').addEventListener('click', openPanel);
+document.getElementById('closePanelBtn').addEventListener('click', closePanel);
+document.getElementById('overlay').addEventListener('click', closePanel);
+
+document.getElementById('saveMonthBtn').addEventListener('click', async ()=>{
+  const key = document.getElementById('f-month').value;
+  if (!key){ document.getElementById('saveStatus').textContent='Selecciona un mes.'; document.getElementById('saveStatus').className='status err'; return; }
+  const btn = document.getElementById('saveMonthBtn');
+  btn.disabled = true; btn.textContent = 'Guardando...';
+  const monthObj = {
+    label: labelFromKey(key),
+    originacion: parseNum(document.getElementById('f-originacion').value),
+    recurrentes: parseNum(document.getElementById('f-recurrentes').value),
+    otros: parseNum(document.getElementById('f-otros').value),
+    costo: parseNum(document.getElementById('f-costo').value),
+    gastos: parseNum(document.getElementById('f-gastos').value),
+    creditos: parseNum(document.getElementById('f-creditos').value),
+    gmv: parseNum(document.getElementById('f-gmv').value),
+    inversionistasNuevos: parseNum(document.getElementById('f-inversionistas').value),
+    montoInvertido: parseNum(document.getElementById('f-montoinvertido').value),
+    rentabilidad: parseNum(document.getElementById('f-rentabilidad').value)
+  };
+  monthsData[key] = monthObj;
+  try{
+    await persist();
+    document.getElementById('saveStatus').textContent = `${monthObj.label} guardado ✓`;
+    document.getElementById('saveStatus').className = 'status ok';
+    renderMonthChips();
+    renderMain();
+  }catch(e){
+    document.getElementById('saveStatus').textContent = 'Error al guardar, intenta de nuevo.';
+    document.getElementById('saveStatus').className = 'status err';
+  }
+  btn.disabled = false; btn.textContent = 'Guardar mes';
+});
+
+document.getElementById('saveSnapshotBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('saveSnapshotBtn');
+  btn.disabled = true; btn.textContent = 'Guardando...';
+  snapshot = {
+    default: parseNum(document.getElementById('f-default').value || snapshot.default),
+    rentabilidadNeta: parseNum(document.getElementById('f-rentneta').value || snapshot.rentabilidadNeta),
+    cajaUSD: parseNum(document.getElementById('f-caja').value || snapshot.cajaUSD),
+    tiempoCierre: parseNum(document.getElementById('f-cierre').value || snapshot.tiempoCierre)
+  };
+  try{
+    await persist();
+    document.getElementById('snapshotStatus').textContent = 'Snapshot guardado ✓';
+    document.getElementById('snapshotStatus').className = 'status ok';
+    renderMain();
+  }catch(e){
+    document.getElementById('snapshotStatus').textContent = 'Error al guardar.';
+    document.getElementById('snapshotStatus').className = 'status err';
+  }
+  btn.disabled = false; btn.textContent = 'Guardar snapshot';
+});
+
+document.getElementById('f-default').placeholder = String(SEED_SNAPSHOT.default);
+document.getElementById('f-rentneta').placeholder = String(SEED_SNAPSHOT.rentabilidadNeta);
+document.getElementById('f-caja').placeholder = String(SEED_SNAPSHOT.cajaUSD);
+document.getElementById('f-cierre').placeholder = String(SEED_SNAPSHOT.tiempoCierre);
+
+loadData();
+</script>
+</body>
+</html>
